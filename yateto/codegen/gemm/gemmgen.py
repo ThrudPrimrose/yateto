@@ -107,8 +107,7 @@ class GemmGen(object):
 
       if gf_spec:
         aux = BatchedOperationsAux(self._arch.typename)
-        print(aux)
-        #TODO: prefer strided??
+
         matrix_a = gf.YatetoInterface.produce_dense_matrix((m, k),
                                                            d.leftTerm.memoryLayout.bbox(),
                                                            addressing=aux.deduce_addresing(d.leftTerm),
@@ -135,12 +134,10 @@ class GemmGen(object):
                   BatchedOperationsAux.FLAGS_NAME,
                   BatchedOperationsAux.STREAM_PTR_NAME]
           args_str = ', '.join(args)
-          call_tokens = ['call']
-          for arg in args:
-            call_tokens.append(str(arg))
-          cpp._tokens.append(call_tokens)
+          #TODO: IMPROVE: In this case tokens are actually not needed
+          #cpp._tokens.append(("CALL", [("lhs",args[0]),("rhs",args[1]),("res",args[2]),("numElements",BatchedOperationsAux.NUM_ELEMENTS_NAME),
+          #                             ("flags",BatchedOperationsAux.FLAGS_NAME),("stream_ptr",BatchedOperationsAux.FLAGS_NAME)]))
 
-          #, loop_over_gemm_tokens=cpp._tokens
           vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename, loop_over_gemm_tokens=cpp._tokens)
           forge_generator = gf.GemmGenerator(vm)
           forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)

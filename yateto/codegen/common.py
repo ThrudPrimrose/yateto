@@ -27,6 +27,15 @@ class TensorDescription(object):
   def fromNode(cls, name, node):
     return cls(name, node.memoryLayout(), node.eqspp())
 
+  def __str__(self):
+      return ("TensorDescription(\n"
+              f"  name={self.name},\n"
+              f"  memoryLayout={self.memoryLayout},\n"
+              f"  eqspp={self.eqspp},\n"
+              f"  is_compute_constant={self.is_compute_constant},\n"
+              f"  is_temporary={self.is_temporary}\n"
+              ")")
+
 class IndexedTensorDescription(TensorDescription):
   def __init__(self, name, indices, memoryLayout, eqspp, is_compute_constant=False, is_temporary=False):
     super().__init__(name, memoryLayout, eqspp, is_compute_constant, is_temporary)
@@ -39,6 +48,16 @@ class IndexedTensorDescription(TensorDescription):
       is_const = node.tensor.is_compute_constant()
     return cls(str(var), node.indices, var.memoryLayout(), node.eqspp(), is_const, var.is_temporary)
 
+  def __str__(self):
+      return ("IndexedTensorDescription("
+              f"name={self.name}, "
+              f"indices={self.indices}, "
+              f"memoryLayout={self.memoryLayout}, "
+              f"eqspp={self.eqspp}, "
+              f"is_compute_constant={self.is_compute_constant}, "
+              f"is_temporary={self.is_temporary})"
+            )
+
 def forLoops(cpp, indexNames, ranges, body, pragmaSimd=True, prefix='_', indexNo=None):
   flops = 0
   if indexNo == None:
@@ -50,6 +69,10 @@ def forLoops(cpp, indexNames, ranges, body, pragmaSimd=True, prefix='_', indexNo
     rng = ranges[index]
     if pragmaSimd and indexNo == 0:
       cpp('#pragma omp simd')
+    if cpp._tokens != None:
+      cpp._tokens.append(("FOR_LOOPS",[("init", f"int {prefix}{index} = {rng.start}"), ("condition", f"{prefix}{index} < {rng.stop}"), 
+                                  ("iteration", f"++{prefix}{index}")]))
+      print("[FORLOOP]", "[", 'int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix) ,"]")
     with cpp.For('int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix)):
       flops = forLoops(cpp, indexNames, ranges, body, pragmaSimd, prefix, indexNo-1)
     flops = flops * rng.size()
@@ -121,3 +144,6 @@ class BatchedOperationsAux:
       return f'const_cast<{const_ptr_type}>({term.name}), {extra_offset}'
     else:
       return f'{term.name}, {extra_offset}'
+
+  def __str__(self):
+    return f"BatchedOperationsAux(underlying_data_type={self.underlying_data_type})"

@@ -48,6 +48,10 @@ class MemoryLayout(ABC):
   def isCompatible(self, spp):
     pass
 
+  def __str__(self):
+    return f"MemoryLayout(shape={self._shape})"
+
+
 class DenseMemoryLayout(MemoryLayout):
   ALIGNMENT_ARCH = None
 
@@ -247,7 +251,12 @@ class DenseMemoryLayout(MemoryLayout):
     return self._stride == other._stride and self._bbox == other._bbox and self._stride == other._stride
 
   def __str__(self):
-    return '{}(shape: {}, bounding box: {}, stride: {})'.format(type(self).__name__, self._shape, self._bbox, self._stride)
+    return ("DenseMemoryLayout("
+            f"shape={self._shape}, "
+            f"bbox={self._bbox}, "
+            f"stride={self._stride}, "
+            f"align={self.ALIGNMENT_ARCH})"
+          )
 
 class CSCMemoryLayout(MemoryLayout):
   def __init__(self, spp):
@@ -329,3 +338,11 @@ class CSCMemoryLayout(MemoryLayout):
 
   def __eq__(self, other):
     return self._bbox == other._bbox and np.array_equal(self._rowIndex, other._rowIndex) and np.array_equal(self._colPtr, other._colPtr)
+
+  def __str__(self):
+    return ("CSCMemoryLayout("
+            f"shape={self._shape}, "
+            f"bbox={self._bbox}, "
+            f"rowIndex_size={len(self._rowIndex)}, "
+            f"colPtr_size={len(self._colPtr)})"
+          )

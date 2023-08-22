@@ -66,6 +66,22 @@ class Description(object):
   def setBeta(self, beta):
     self.beta = beta
 
+  def __str__(self):
+      return ("Description(\n"
+              f"  result={self.result},\n"
+              f"  leftTerm={self.leftTerm},\n"
+              f"  rightTerm={self.rightTerm},\n"
+              f"  transA={self.transA},\n"
+              f"  transB={self.transB},\n"
+              f"  alpha={self.alpha},\n"
+              f"  beta={self.beta},\n"
+              f"  prefetchName={self.prefetchName},\n"
+              f"  isACsc={self.isACsc},\n"
+              f"  isBCsc={self.isBCsc},\n"
+              f"  alignedA={self.alignedA},\n"
+              f"  alignedC={self.alignedC},\n"
+              f"  mnk={self._mnk}\n"
+              ")")
 
 def generator(arch, descr, gemm_cfg, target):
   AOk = descr.isACsc or descr.leftTerm.memoryLayout.stridei(0) == 1

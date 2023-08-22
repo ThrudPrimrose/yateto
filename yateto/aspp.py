@@ -50,6 +50,9 @@ class ASpp(ABC):
   def as_ndarray(self):
     pass
 
+  def __str__(self):
+    return f"ASpp(shape={self.shape}, size={self.size}, ndim={self.ndim})"
+
 class dense(ASpp):
   def count_nonzero(self):
     return self.size
@@ -107,6 +110,10 @@ class dense(ASpp):
 
   def as_ndarray(self):
     return np.ones(self.shape, dtype=bool, order=general.NUMPY_DEFAULT_ORDER)
+
+  def __str__(self):
+    return f"dense(shape={self.shape}, size={self.size}, ndim={self.ndim})"
+
 
 class general(ASpp):
   NUMPY_DEFAULT_ORDER = 'F'
@@ -177,6 +184,10 @@ class general(ASpp):
 
   def as_ndarray(self):
     return self.pattern
+
+  def __str__(self):
+    nnz = self.count_nonzero()
+    return f"general(shape={self.shape}, size={self.size}, ndim={self.ndim}, nnz={nnz})"
 
 _binary_op = {
   (dense, dense): dense,
