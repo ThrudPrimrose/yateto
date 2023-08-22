@@ -51,7 +51,8 @@ class Block:
     self.writer = writer
     self.argument = argument
     self.foot = foot
-    
+    self.tokens = list()
+
   def __enter__(self):
     space = ' ' if self.argument else ''
     self.writer(self.argument + space + '{')
@@ -109,7 +110,8 @@ class Cpp:
   def __init__(self, streamOrFileName = sys.stdout):
     self.fileHandle = streamOrFileName
     self.indent = 0
-    
+    self._tokens = list()
+
   def __enter__(self):
     self.out = open(self.fileHandle, 'w+') if isinstance(self.fileHandle, str) else self.fileHandle
     return self

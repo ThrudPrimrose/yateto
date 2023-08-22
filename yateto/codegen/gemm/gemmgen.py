@@ -107,28 +107,27 @@ class GemmGen(object):
 
       if gf_spec:
         aux = BatchedOperationsAux(self._arch.typename)
-
+        print(aux)
+        #TODO: prefer strided??
         matrix_a = gf.YatetoInterface.produce_dense_matrix((m, k),
                                                            d.leftTerm.memoryLayout.bbox(),
                                                            addressing=aux.deduce_addresing(d.leftTerm),
-                                                           transpose=d.transA)
+                                                           transpose=d.transA,
+                                                           leading_dimension=ldA)
 
         matrix_b = gf.YatetoInterface.produce_dense_matrix((k, n),
                                                            d.rightTerm.memoryLayout.bbox(),
                                                            addressing=aux.deduce_addresing(d.rightTerm),
-                                                           transpose=d.transB)
+                                                           transpose=d.transB,
+                                                           leading_dimension=ldB)
 
         matrix_c = gf.YatetoInterface.produce_dense_matrix((m, n),
                                                            d.result.memoryLayout.bbox(),
                                                            addressing=aux.deduce_addresing(d.result),
-                                                           transpose=False)
+                                                           transpose=False,
+                                                           leading_dimension=ldC)
 
         try:
-          vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
-          forge_generator = gf.GemmGenerator(vm)
-          forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)
-          routine_name = forge_generator.get_base_name()
-
           args = [aux.deduce_arg(d.leftTerm, as_const=True),
                   aux.deduce_arg(d.rightTerm, as_const=True),
                   aux.deduce_arg(d.result, as_const=False),
@@ -136,12 +135,22 @@ class GemmGen(object):
                   BatchedOperationsAux.FLAGS_NAME,
                   BatchedOperationsAux.STREAM_PTR_NAME]
           args_str = ', '.join(args)
+          call_tokens = ['call']
+          for arg in args:
+            call_tokens.append(str(arg))
+          cpp._tokens.append(call_tokens)
+
+          #, loop_over_gemm_tokens=cpp._tokens
+          vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename, loop_over_gemm_tokens=cpp._tokens)
+          forge_generator = gf.GemmGenerator(vm)
+          forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)
+          routine_name = forge_generator.get_base_name()
 
           if not isinstance(d.alpha, float):
             args_str = f'{d.alpha}, {args_str}'
 
           cpp(f'{routine_name}({args_str});')
-
+          print(cpp._tokens)
           routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
 
         except gf.GenerationError as err:
