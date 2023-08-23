@@ -28,5 +28,7 @@ def generator(arch, descr, target):
   if target == 'cpu':
     return Generic(arch, descr)
   elif target == 'gpu':
-    raise RuntimeError("Product operation has not been implemented for GPU-like architectures")
-
+    #raise RuntimeError("Product operation has not been implemented for GPU-like architectures")
+    #...
+    print("WARNING: Product operation has not been implemented for GPU-like architectures, TOOD: Replace CPU fallback code")
+    return Generic(arch, descr)

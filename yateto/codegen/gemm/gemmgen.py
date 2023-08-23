@@ -24,6 +24,10 @@ class GemmGen(object):
     self._descr = descr
     self._gemm_cfg = gemm_cfg
     self._mode = gemm_cfg.operation_name
+    self._generate_code = True
+
+  def _set_generate_code(self, gen_code: bool):
+    self._generate_code = gen_code
 
   def _is_special(self, value, specials):
     result = 'generic'
@@ -135,20 +139,28 @@ class GemmGen(object):
                   BatchedOperationsAux.STREAM_PTR_NAME]
           args_str = ', '.join(args)
           #TODO: IMPROVE: In this case tokens are actually not needed
-          #cpp._tokens.append(("CALL", [("lhs",args[0]),("rhs",args[1]),("res",args[2]),("numElements",BatchedOperationsAux.NUM_ELEMENTS_NAME),
-          #                             ("flags",BatchedOperationsAux.FLAGS_NAME),("stream_ptr",BatchedOperationsAux.FLAGS_NAME)]))
+          cpp._tokens.append(("CALL", [("lhs",args[0]),("rhs",args[1]),("res",args[2]),("numElements",BatchedOperationsAux.NUM_ELEMENTS_NAME),
+                                       ("flags",BatchedOperationsAux.FLAGS_NAME),("stream_ptr",BatchedOperationsAux.FLAGS_NAME)]))
+          
+          if not self._generate_code:
+            vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
+            forge_generator = gf.GemmGenerator(vm)
+          else:
+            vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename, loop_over_gemm_tokens=cpp._tokens)
+            forge_generator = gf.LoopOverGemmGenerator(vm)
 
-          vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename, loop_over_gemm_tokens=cpp._tokens)
-          forge_generator = gf.GemmGenerator(vm)
           forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)
           routine_name = forge_generator.get_base_name()
+          cpp._tokens.append(("CONFIGURATION", [d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta]))
 
           if not isinstance(d.alpha, float):
             args_str = f'{d.alpha}, {args_str}'
 
-          cpp(f'{routine_name}({args_str});')
+          if self._generate_code:
+            cpp(f'{routine_name}({args_str});')
           print(cpp._tokens)
-          routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
+          if self._generate_code:
+            routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
 
         except gf.GenerationError as err:
           print(f'ERROR from GemmForge: {err}')
