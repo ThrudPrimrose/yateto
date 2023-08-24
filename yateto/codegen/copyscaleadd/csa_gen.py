@@ -124,7 +124,6 @@ class GemmForgeWriter(GpuRoutineGenerator):
 
   def header(self, cpp):
     cpp.includes(self._headers)
-    cpp._log_tokens.append(("CSA", []))
 
   def __call__(self, routineName, fileName):
     self._generator.generate()
