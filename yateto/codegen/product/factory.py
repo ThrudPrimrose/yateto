@@ -1,7 +1,7 @@
 from ...memory import CSCMemoryLayout
 from ..common import *
 from .generic import Generic
-
+from .gemmforgeProduct import GemmforgeProduct
 class Description(object):
   def __init__(self, alpha, add: bool, result: IndexedTensorDescription, leftTerm: IndexedTensorDescription, rightTerm: IndexedTensorDescription):
     self.alpha = alpha
@@ -22,7 +22,19 @@ class Description(object):
     
     rA.update(rB)
 
-    self.loopRanges = rA    
+    self.loopRanges = rA
+
+  def __str__(self):
+    return (f"Description(\n"
+            f"\talpha: {self.alpha}\n"
+            f"\tadd: {self.add}\n"
+            f"\tresult: {self.result}\n"
+            f"\tleftTerm: {self.leftTerm}\n"
+            f"\trightTerm: {self.rightTerm}\n"
+            f"\tisACsc: {self.isACsc}\n"
+            f"\tisBCsc: {self.isBCsc}\n"
+            f"\tloopRanges: {self.loopRanges}\n"
+            f")")
 
 def generator(arch, descr, target):
   if target == 'cpu':
@@ -31,4 +43,4 @@ def generator(arch, descr, target):
     #raise RuntimeError("Product operation has not been implemented for GPU-like architectures")
     #...
     print("WARNING: Product operation has not been implemented for GPU-like architectures, TOOD: Replace CPU fallback code")
-    return Generic(arch, descr)
+    return GemmforgeProduct(arch=arch, descr=descr)

@@ -19,8 +19,11 @@ class Generic(object):
         target = '{}[{}]'.format(d.result.name, d.result.memoryLayout.addressString(d.result.indices))
         initialValue = target if d.add else self._arch.formatConstant(0.0)
         cpp( '{} sum = {};'.format(self._arch.typename, initialValue) )
+        cpp._tokens.append(("FOR_LOOPS_INDEX_SUM",[("init", f"int {sumIndex} = {d.sumLoopRange.start}"), ("condition", f"{sumIndex} < {stop}"), 
+                                  ("iteration", f"++{sumIndex}")]))
         with cpp.For('int {0} = {1}; {0} < {2}; ++{0}'.format(sumIndex, d.sumLoopRange.start, d.sumLoopRange.stop)):
           cpp( 'sum += {}[{}];'.format(d.term.name, d.term.memoryLayout.addressString(d.term.indices)) )
+        cpp._tokens.append(("END_FOR_LOOPS_INDEX_SUM", []))
         mult = '{} * '.format(d.alpha) if d.alpha != 1.0 else ''
         cpp( '{} = {}sum;'.format(target, mult) )
         

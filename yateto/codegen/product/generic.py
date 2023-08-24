@@ -26,6 +26,8 @@ class Generic(object):
     class ProductBody(object):
       def __call__(s):
         mult = self._mult(d.alpha)
+        cpp._tokens.append(("PRODUCT_BODY", []))
+        print("PRODUCT_BODY")
         cpp( '{}[{}] {} {}{}[{}] * {}[{}];'.format(
             d.result.name, d.result.memoryLayout.addressString(d.result.indices),
             '+=' if d.add else '=',

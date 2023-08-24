@@ -70,11 +70,13 @@ def forLoops(cpp, indexNames, ranges, body, pragmaSimd=True, prefix='_', indexNo
     if pragmaSimd and indexNo == 0:
       cpp('#pragma omp simd')
     if cpp._tokens != None:
-      cpp._tokens.append(("FOR_LOOPS",[("init", f"int {prefix}{index} = {rng.start}"), ("condition", f"{prefix}{index} < {rng.stop}"), 
+      cpp._tokens.append(("FOR_LOOPS_COMMON",[("init", f"int {prefix}{index} = {rng.start}"), ("condition", f"{prefix}{index} < {rng.stop}"), 
                                   ("iteration", f"++{prefix}{index}")]))
-      print("[FORLOOP]", "[", 'int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix) ,"]")
+      print("[FOR_LOOPS_COMMON]", "[", 'int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix) ,"]")
     with cpp.For('int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix)):
       flops = forLoops(cpp, indexNames, ranges, body, pragmaSimd, prefix, indexNo-1)
+    if cpp._tokens != None:
+      cpp._tokens.append(("END_FOR_LOOPS_COMMON", []))
     flops = flops * rng.size()
   return flops
   
