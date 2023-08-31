@@ -58,9 +58,7 @@ class GemmforgeProduct(object):
       for i in range(len(d.result.indices)):
           m = d.loopRanges[d.result.indices[i]]
           loopRanges.append(m)
-      #m = d.loopRanges[d.result.indices[0]]
-      #n = d.loopRanges[d.result.indices[1]]
-      print(loopRanges)
+          print("X", m, "Y", str(m), "Z", m.__repr__())
       alpha = d.alpha
       print(d.leftTerm.memoryLayout.bbox())
 
