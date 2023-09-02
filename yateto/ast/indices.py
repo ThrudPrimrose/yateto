@@ -89,7 +89,7 @@ class Indices(object):
     return self.tostring()
     
   def __repr__(self):
-    return '({})'.format(','.join(['{}={}'.format(index, self._size[index]) for index in self._indices]))
+    return 'Indices({})'.format(','.join(['{}={}'.format(index, self._size[index]) for index in self._indices]))
   
   def size(self):
     return self._size
@@ -119,7 +119,10 @@ class Range(object):
   
   def __str__(self):
     return 'Range({}, {})'.format(self.start, self.stop)
-  
+
+  def __repr__(self):
+    return self.__str__()
+
   def __iter__(self):
     return iter(range(self.start, self.stop))
       
