@@ -44,7 +44,6 @@ class GemmforgeProduct(object):
     self._arch = arch
     self._descr = descr
 
-    self._gemmforge_descriptions = list()
     self._generate_code = False
 
     # For GPUs we may only generate one function for the whole kernel, for CPU
@@ -113,7 +112,6 @@ class GemmforgeProduct(object):
               ]
       complete_operation_description = (self._descr, tensor_a, tensor_b, tensor_c, alpha, args)
       GemmforgeProduct.gemmforge_descriptions.append(complete_operation_description)
-      #raise Exception(str(self._descr))
 
       if self._generate_code:
         try:
@@ -123,7 +121,7 @@ class GemmforgeProduct(object):
           routine_name = forge_generator.get_base_name()
 
           print(self._gemmforge_descriptions)
-          #We need to callect every input argument
+          #We need to collect every input argument
           args = list()
           for gemmforge_descr in self._gemmforge_descriptions:
             descr = gemmforge_descr[0]

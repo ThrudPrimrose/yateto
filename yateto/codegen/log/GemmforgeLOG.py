@@ -146,9 +146,11 @@ class GemmforgeLOG(object):
           if outerPrefetchName is not None:
             self._pointer(cpp, innerPrefetchName, outerPrefetchName, d.result, d.innerLoopIndices)
         generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-        if hasOuterLoops:
-          generator._set_generate_code(False)
-        return generator.generate(cpp, routineCache)
+        generator.set_code_generation_off()
+        flops = generator.generate(cpp, routineCache)
+        cpp._tokens.append(generator.get_last_description())
+        generator.set_code_generation_on()
+        return flops
 
     class InnerLoopBody(object):
       def __call__(s):
@@ -177,9 +179,12 @@ class GemmforgeLOG(object):
         return flops
 
     flops = forLoops(cpp, d.outerLoopIndices, d.loopRanges, InnerLoopBody(), pragmaSimd=False)
-    if hasOuterLoops and self._target == 'gpu':
+    if hasOuterLoops:
       generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-      generator._set_generate_code(True)
+      generator.set_code_generation_off()
       generator.generate(cpp, routineCache)
-  
+      cpp._tokens.append(generator.get_last_description())
+      generator.set_code_generation_on()
+
+    raise Exception(cpp._tokens)
     return flops
