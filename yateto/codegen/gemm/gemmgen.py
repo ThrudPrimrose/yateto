@@ -24,10 +24,7 @@ class GemmGen(object):
     self._descr = descr
     self._gemm_cfg = gemm_cfg
     self._mode = gemm_cfg.operation_name
-    self._generate_code = True
-
-  def _set_generate_code(self, gen_code: bool):
-    self._generate_code = gen_code
+    assert(not isinstance(self._gemm_cfg, GemmForge))
 
   def _is_special(self, value, specials):
     result = 'generic'
@@ -107,67 +104,6 @@ class GemmGen(object):
                                 alignedA=d.alignedA,
                                 alignedC=d.alignedC,
                                 prefetchName=d.prefetchName))
-    elif isinstance(self._gemm_cfg, GemmForge):
-
-      if gf_spec:
-        aux = BatchedOperationsAux(self._arch.typename)
-
-        matrix_a = gf.YatetoInterface.produce_dense_matrix((m, k),
-                                                           d.leftTerm.memoryLayout.bbox(),
-                                                           addressing=aux.deduce_addresing(d.leftTerm),
-                                                           transpose=d.transA,
-                                                           leading_dimension=ldA)
-
-        matrix_b = gf.YatetoInterface.produce_dense_matrix((k, n),
-                                                           d.rightTerm.memoryLayout.bbox(),
-                                                           addressing=aux.deduce_addresing(d.rightTerm),
-                                                           transpose=d.transB,
-                                                           leading_dimension=ldB)
-
-        matrix_c = gf.YatetoInterface.produce_dense_matrix((m, n),
-                                                           d.result.memoryLayout.bbox(),
-                                                           addressing=aux.deduce_addresing(d.result),
-                                                           transpose=False,
-                                                           leading_dimension=ldC)
-
-        try:
-          args = [aux.deduce_arg(d.leftTerm, as_const=True),
-                  aux.deduce_arg(d.rightTerm, as_const=True),
-                  aux.deduce_arg(d.result, as_const=False),
-                  BatchedOperationsAux.NUM_ELEMENTS_NAME,
-                  BatchedOperationsAux.FLAGS_NAME,
-                  BatchedOperationsAux.STREAM_PTR_NAME]
-          args_str = ', '.join(args)
-          #TODO: IMPROVE: In this case tokens are actually not needed
-          cpp._tokens.append(("CALL", [("lhs",args[0]),("rhs",args[1]),("res",args[2]),("numElements",BatchedOperationsAux.NUM_ELEMENTS_NAME),
-                                       ("flags",BatchedOperationsAux.FLAGS_NAME),("stream_ptr",BatchedOperationsAux.FLAGS_NAME)]))
-          
-          if not self._generate_code:
-            vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
-            forge_generator = gf.GemmGenerator(vm)
-          else:
-            vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename, loop_over_gemm_tokens=cpp._tokens)
-            forge_generator = gf.LoopOverGemmGenerator(vm)
-
-          forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)
-          routine_name = forge_generator.get_base_name()
-          cpp._tokens.append(("CONFIGURATION", [d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta]))
-
-          if not isinstance(d.alpha, float):
-            args_str = f'{d.alpha}, {args_str}'
-
-          if self._generate_code:
-            cpp(f'{routine_name}({args_str});')
-          print(cpp._tokens)
-          if self._generate_code:
-            routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
-
-        except gf.GenerationError as err:
-          print(f'ERROR from GemmForge: {err}')
-          raise err
-      else:
-        raise RuntimeError('gemmforge module is not found. You can install it with pip3. '
-                           'e.g., pip3 install gemmforge')
     else:
       gemm = {
         'M':            m.size(),
@@ -324,34 +260,6 @@ Stderr: {result.stderr}""")
       return 'void {name}(const {type}* A, const {type}* B, {type}* C, {type} alpha, {type} beta, const {type}* prefetch);'.format(name=routineName, type=self._arch.typename)
     return 'void {name}(const {type}* A, const {type}* B, {type}* C, const {type}* A_prefetch, const {type}* B_prefetch, const {type}* C_prefetch);'.format(name=routineName, type=self._arch.typename)
   
-
-class GemmForgeWriter(GpuRoutineGenerator):
-  def __init__(self, forge_generator, headers):
-    self._generator = forge_generator
-    self._basename = forge_generator.get_base_name()
-    self._headers = headers
-
-  def __eq__(self, other):
-    if isinstance(other, GemmForgeWriter):
-      return self._basename == other._basename
-    else:
-      return False
-
-  def header(self, cpp):
-    cpp.includes(self._headers)
-
-  def __call__(self, routineName, fileName):
-    self._generator.generate()
-    declaration = self._generator.get_launcher_header()
-    launcher = self._generator.get_launcher()
-    kernel = self._generator.get_kernel()
-
-    with open(fileName, "a") as file:
-      file.write(kernel)
-      file.write(launcher)
-
-    return declaration
-
 
 class LibxsmmGemmGen(ExecuteGemmGen):
   def __init__(self,

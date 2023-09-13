@@ -3,18 +3,41 @@ from ..common import *
 from .. import gemm
 from ...memory import DenseMemoryLayout
 
-class Generic(object):
-  def __init__(self, arch, descr, target):
+class GemmforgeLOG(object):
+  def __init__(self, arch, descr):
     self._arch = arch
     self._descr = descr
-    self._target = target
+    self._target = "gpu"
   
+    self._gemmforge_descriptions = list()
+    self._generate_code = False
+
+    # For GPUs we may only generate one function for the whole kernel, for CPU
+    # Kernel is split into multiple smaller functions
+    # e.g., A = B dot C dot D
+    # This results with 2 binary ops in 2 functions
+    # tmp0 = B dot C
+    # A = tmp0 dot D
+    # in GPUs we should only generate one function for both of them
+    # The complete kernel has not yet been completed
+    if (self._descr.result.is_temporary):
+      self.set_code_generation_off()
+    else:
+      self.set_code_generation_on()
+
+  def set_code_generation_on(self):
+    self._generate_code = True
+
+  def set_code_generation_off(self):
+    self._generate_code = False
+
   def _pointer(self, cpp, targetName, baseName, term, loopIndices, const=True):
     indices = term.indices & loopIndices
     addressStr = term.memoryLayout.addressString(term.indices, indices) if len(indices) > 0 else ''
     if len(addressStr) > 0:
       addressStr = ' + ' + addressStr
     cpp('{} {}* {} = {}{};'.format(self._arch.typename, 'const' if const else '', targetName, baseName, addressStr))
+    print("[_POINTER]", '{} {}* {} = {}{};'.format(self._arch.typename, 'const' if const else '', targetName, baseName, addressStr))
     return (self._arch.typename, 'const' if const else '', targetName, baseName, addressStr)
 
   def _alignedStart(self, term, loopIndices):
@@ -55,9 +78,10 @@ class Generic(object):
     
     hasOuterLoops = len(d.outerLoopIndices) > 0
 
-    if hasOuterLoops and self._target == 'gpu':
-      raise RuntimeError("Loop over GEMM with the outer loop hasn't been implemented yet "
-                         "for the GPU-like architectures")
+    #Bring back old changes...
+    #if hasOuterLoops and self._target == 'gpu':
+    #  raise RuntimeError("Loop over GEMM with the outer loop hasn't been implemented yet "
+    #                     "for the GPU-like architectures")
 
     outerAname = '_A' if hasOuterLoops else d.leftTerm.name
     outerBname = '_B' if hasOuterLoops else d.rightTerm.name
@@ -95,7 +119,8 @@ class Generic(object):
       alignedStartC = self._alignedStart(d.result, d.outerLoopIndices) and self._alignedStart(d.result, d.innerLoopIndices),
       prefetchName = innerPrefetchName
     )
-
+    #print("A BEGIN:\n", gemmDescr, "A END\n")
+    
     if not d.add:
       lr = dict()
       m, n, k = gemmDescr.mnk()
@@ -108,13 +133,20 @@ class Generic(object):
     class LoGBody(object):
       def __call__(s):
         if hasInnerLoops:
-          self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
-          self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
-          self._pointer(cpp, innerCname, outerCname, d.result, d.innerLoopIndices, const=False)
+          print("LOGBODY")
+          (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerCname, outerCname, d.result, d.innerLoopIndices, const=False)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
           if outerPrefetchName is not None:
             self._pointer(cpp, innerPrefetchName, outerPrefetchName, d.result, d.innerLoopIndices)
         generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-        if hasOuterLoops and self._target == 'gpu':
+        if hasOuterLoops:
           generator._set_generate_code(False)
         return generator.generate(cpp, routineCache)
 
@@ -123,9 +155,17 @@ class Generic(object):
         print("INNERLOOPBODY")
         flops = 0
         if hasOuterLoops:
-          self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
-          self._pointer(cpp, outerBname, d.rightTerm.name, d.rightTerm, d.outerLoopIndices)
-          self._pointer(cpp, outerCname, d.result.name, d.result, d.outerLoopIndices, const=False)
+          print("INNTERLOOPBODY HASOUTERLOOPS")
+          print(d.outerLoopIndices)
+          (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerBname, d.rightTerm.name, d.rightTerm, d.outerLoopIndices)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerCname, d.result.name, d.result, d.outerLoopIndices, const=False)
+          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
+                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
           if d.prefetchName is not None:
             self._pointer(cpp, outerPrefetchName, d.prefetchName, d.result, d.outerLoopIndices)
         if d.assignLoopRanges is not None:

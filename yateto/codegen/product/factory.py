@@ -1,7 +1,8 @@
 from ...memory import CSCMemoryLayout
 from ..common import *
 from .generic import Generic
-from .gemmforgeProduct import GemmforgeProduct
+from .GemmforgeProduct import GemmforgeProduct
+
 class Description(object):
   def __init__(self, alpha, add: bool, result: IndexedTensorDescription, leftTerm: IndexedTensorDescription, rightTerm: IndexedTensorDescription):
     self.alpha = alpha

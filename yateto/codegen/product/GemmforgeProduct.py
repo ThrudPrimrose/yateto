@@ -76,7 +76,7 @@ class GemmforgeProduct(object):
 
     """
     if (gf_spec):
-      d = self._descr  # type: product description
+      d = self._descr
       print(d)
       loopRanges = list()
       for i in range(len(d.result.indices)):

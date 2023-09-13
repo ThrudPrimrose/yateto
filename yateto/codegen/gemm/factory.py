@@ -3,7 +3,8 @@ from ...memory import CSCMemoryLayout
 from ..common import TensorDescription
 from .generic import Generic
 from .gemmgen import GemmGen
-
+from ...gemm_configuration import GemmForge
+from .GemmforgeGemmGen import GemmforgeGemmGen
 
 class Description(object):
   def __init__(self,
@@ -102,6 +103,9 @@ def generator(arch, descr, gemm_cfg, target):
                                     descr.alignedA,
                                     descr.alignedC,
                                     target)
-    if gemmTool:
+
+    if isinstance(gemmTool, GemmForge):
+      return GemmforgeGemmGen(arch, descr, gemmTool)
+    elif gemmTool:
       return GemmGen(arch, descr, gemmTool)
   return Generic(arch, descr)

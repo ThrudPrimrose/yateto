@@ -1,6 +1,7 @@
 import copy
 from ..common import *
 from .generic import Generic
+from .GemmforgeLOG import GemmforgeLOG
 
 class Description(object):
   def __init__(self,
@@ -55,5 +56,7 @@ class Description(object):
       
 
 def generator(arch, descr, target):
+  if target == "gpu":
+      return GemmforgeLOG(arch, descr)
   return Generic(arch, descr, target)
 
