@@ -114,13 +114,10 @@ class Generic(object):
           if outerPrefetchName is not None:
             self._pointer(cpp, innerPrefetchName, outerPrefetchName, d.result, d.innerLoopIndices)
         generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-        if hasOuterLoops and self._target == 'gpu':
-          generator._set_generate_code(False)
         return generator.generate(cpp, routineCache)
 
     class InnerLoopBody(object):
       def __call__(s):
-        print("INNERLOOPBODY")
         flops = 0
         if hasOuterLoops:
           self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
@@ -136,10 +133,4 @@ class Generic(object):
           flops += forLoops(cpp, d.innerLoopIndices, d.addLoopRanges, LoGBody(), pragmaSimd=False)
         return flops
 
-    flops = forLoops(cpp, d.outerLoopIndices, d.loopRanges, InnerLoopBody(), pragmaSimd=False)
-    if hasOuterLoops and self._target == 'gpu':
-      generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-      generator._set_generate_code(True)
-      generator.generate(cpp, routineCache)
-  
-    return flops
+    return forLoops(cpp, d.outerLoopIndices, d.loopRanges, InnerLoopBody(), pragmaSimd=False)

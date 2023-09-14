@@ -122,6 +122,8 @@ class GemmforgeGemmGen(object):
                                                            addressing=aux.deduce_addresing(d.result),
                                                            transpose=False,
                                                            leading_dimension=ldC)
+
+        #raise Exception(str(d.leftTerm) + "\n" + str(aux.deduce_arg(d.leftTerm)))
         args = [
                 aux.deduce_arg(d.leftTerm),
                 aux.deduce_arg(d.rightTerm),
@@ -130,17 +132,17 @@ class GemmforgeGemmGen(object):
                 BatchedOperationsAux.FLAGS_NAME,
                 BatchedOperationsAux.STREAM_PTR_NAME
                 ]
-        complete_operation_description = {"descr": d,
+        complete_operation_description = ("gemm", {"descr": d,
                                           "matrix_a": matrix_a, "matrix_b": matrix_b, "matrix_c":matrix_c, 
-                                          "args":args}
+                                          "args":args})
         GemmforgeGemmGen.gemmforge_descriptions.append(complete_operation_description)
 
 
         if self._generate_code:
           try:
             for complete_descr in GemmforgeGemmGen.gemmforge_descriptions:
-              args = complete_descr[-1]
-              d = complete_descr["descr"]
+              args = complete_descr[1]["args"]
+              d = complete_descr[1]["descr"]
               args_str = ', '.join(args)
 
               vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
@@ -169,8 +171,8 @@ class GemmforgeGemmGen(object):
     assert(self._generate_code)
     try:
       for complete_descr in GemmforgeGemmGen.gemmforge_descriptions:
-        args = complete_descr["args"]
-        d = complete_descr["descr"]
+        args = complete_descr[1]["args"]
+        d = complete_descr[1]["descr"]
         args_str = ', '.join(args)
 
         vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
@@ -186,7 +188,7 @@ class GemmforgeGemmGen(object):
 
         cpp("{}({});".format(routine_name, ', '.join(args)))
         routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
-      GemmforgeGemmGen.gemmforge_descriptions.clear()
+      #GemmforgeGemmGen.gemmforge_descriptions.clear()
     except gf.GenerationError as err:
       print(f'ERROR from GemmForge: {err}')
       raise err

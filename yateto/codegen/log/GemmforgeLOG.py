@@ -1,8 +1,16 @@
+import importlib
 from yateto.codegen.gemm import GemmforgeGemmGen
 from ...ast.indices import Indices
 from ..common import *
 from .. import gemm
 from ...memory import DenseMemoryLayout
+
+gf_spec = importlib.util.find_spec('gemmforge')
+try:
+  if gf_spec:
+    gf = gf_spec.loader.load_module()
+except:
+  raise ('Cannot load gemmforge.')
 
 class GemmforgeLOG(object):
   gemmforge_log_descriptions = list()
@@ -108,9 +116,9 @@ class GemmforgeLOG(object):
     print(Aeqspp)
 
     gemmDescr = gemm.Description(
-      leftTerm = TensorDescription(innerAname, AmemLayout, Aeqspp, d.leftTerm.is_compute_constant, d.leftTerm.is_temporary),
-      rightTerm = TensorDescription(innerBname, BmemLayout, Beqspp, d.rightTerm.is_compute_constant, d.rightTerm.is_temporary),
-      result = TensorDescription(innerCname, CmemLayout, Ceqspp, d.result.is_compute_constant, d.result.is_temporary),
+      leftTerm = TensorDescription(d.leftTerm.name, AmemLayout, Aeqspp, d.leftTerm.is_compute_constant, d.leftTerm.is_temporary),
+      rightTerm = TensorDescription(d.rightTerm.name, BmemLayout, Beqspp, d.rightTerm.is_compute_constant, d.rightTerm.is_temporary),
+      result = TensorDescription(d.result.name, CmemLayout, Ceqspp, d.result.is_compute_constant, d.result.is_temporary),
       transA = d.transA,
       transB = d.transB,
       alpha = d.alpha,
@@ -135,7 +143,7 @@ class GemmforgeLOG(object):
       def __call__(s):
         if hasInnerLoops:
           print("LOGBODY")
-          for_loop_descr = ("LoGBody for", dict())
+          for_loop_descr = ("LoGBody", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
           for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
@@ -160,7 +168,7 @@ class GemmforgeLOG(object):
         if hasOuterLoops:
           print("INNTERLOOPBODY HASOUTERLOOPS")
           print(d.outerLoopIndices)
-          for_loop_descr = ("InnerLoopBoy for", dict())
+          for_loop_descr = ("InnerLoopBody", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
           for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerBname, d.rightTerm.name, d.rightTerm, d.outerLoopIndices)
@@ -173,21 +181,42 @@ class GemmforgeLOG(object):
             self._pointer(cpp, outerPrefetchName, d.prefetchName, d.result, d.outerLoopIndices)
         if d.assignLoopRanges is not None:
           gemmDescr.setBeta(0.0)
-          flops += forLoops(cpp, d.innerLoopIndices, d.assignLoopRanges, LoGBody(), pragmaSimd=False)
+          flops += forLoopsAppendDescriptions(cpp, GemmforgeLOG.gemmforge_log_descriptions, d.innerLoopIndices, d.assignLoopRanges, LoGBody(), pragmaSimd=False)
         if d.addLoopRanges is not None:
           gemmDescr.setBeta(1.0)
-          flops += forLoops(cpp, d.innerLoopIndices, d.addLoopRanges, LoGBody(), pragmaSimd=False)
+          flops += forLoopsAppendDescriptions(cpp, GemmforgeLOG.gemmforge_log_descriptions, d.innerLoopIndices, d.addLoopRanges, LoGBody(), pragmaSimd=False)
         return flops
 
-    flops = forLoops(cpp, d.outerLoopIndices, d.loopRanges, InnerLoopBody(), pragmaSimd=False)
-    if hasOuterLoops:
-      generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-      generator.set_code_generation_off()
-      generator.generate(cpp, routineCache)
-      GemmforgeLOG.gemmforge_log_descriptions.append(generator.get_last_description())
+    flops = forLoopsAppendDescriptions(cpp, GemmforgeLOG.gemmforge_log_descriptions, d.outerLoopIndices, d.loopRanges, InnerLoopBody(), pragmaSimd=False)
 
     # TODO Always call LOG generator of gemmforge now on
-    generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
-    generator.set_code_generation_on()
-    generator.generate_buffered_descriptions(cpp, routineCache)
+    #generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
+    #generator.set_code_generation_on()
+    #generator.generate_buffered_descriptions(cpp, routineCache)
+    vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
+    forge_generator = gf.LoopOverGemmGenerator(vm)
+    forge_generator.set(GemmforgeLOG.gemmforge_log_descriptions)
+    routine_name = forge_generator.get_base_name()
+
+    aux = BatchedOperationsAux(self._arch.typename)
+    args = list()
+    print(GemmforgeLOG.gemmforge_log_descriptions)
+    for gemmforge_descr in GemmforgeLOG.gemmforge_log_descriptions:
+      print(gemmforge_descr)
+      if gemmforge_descr[0] == "gemm":
+        gemm_args = gemmforge_descr[1]["args"]
+        #descr = gemmforge_descr[1]["descr"]
+        args += gemm_args
+    args.append(BatchedOperationsAux.NUM_ELEMENTS_NAME)
+    args.append(BatchedOperationsAux.FLAGS_NAME)
+    args.append(BatchedOperationsAux.STREAM_PTR_NAME)
+
+    if not isinstance(d.alpha, float):
+      args_str = f'{d.alpha}, {args_str}'
+
+    cpp("{}({});".format(routine_name, ', '.join(args)))
+    routineCache.addRoutine(routine_name, GemmforgeGemmGen.GemmForgeWriter(forge_generator, vm.get_headers()))
+    # Do not clear the LOG Tokens like Gemm Tokens
+    #GemmforgeLOG.gemmforge_log_descriptions.clear()
+
     return flops

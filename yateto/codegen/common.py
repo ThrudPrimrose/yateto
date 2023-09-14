@@ -28,13 +28,16 @@ class TensorDescription(object):
     return cls(name, node.memoryLayout(), node.eqspp())
 
   def __str__(self):
-      return ("TensorDescription(\n"
-              f"  name={self.name},\n"
-              f"  memoryLayout={self.memoryLayout},\n"
-              f"  eqspp={self.eqspp},\n"
-              f"  is_compute_constant={self.is_compute_constant},\n"
-              f"  is_temporary={self.is_temporary}\n"
+      return ("TensorDescription("
+              f"  name={self.name},\t"
+              f"  memoryLayout={self.memoryLayout},\t"
+              f"  eqspp={self.eqspp},\t"
+              f"  is_compute_constant={self.is_compute_constant},\t"
+              f"  is_temporary={self.is_temporary}"
               ")")
+
+  def __repr__(self):
+    return self.__str__()
 
 class IndexedTensorDescription(TensorDescription):
   def __init__(self, name, indices, memoryLayout, eqspp, is_compute_constant=False, is_temporary=False):
@@ -69,16 +72,35 @@ def forLoops(cpp, indexNames, ranges, body, pragmaSimd=True, prefix='_', indexNo
     rng = ranges[index]
     if pragmaSimd and indexNo == 0:
       cpp('#pragma omp simd')
-    if cpp._tokens != None:
-      cpp._tokens.append(("FOR_LOOPS_COMMON",[("init", f"int {prefix}{index} = {rng.start}"), ("condition", f"{prefix}{index} < {rng.stop}"), 
-                                  ("iteration", f"++{prefix}{index}")]))
-      print("[FOR_LOOPS_COMMON]", "[", 'int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix) ,"]")
     with cpp.For('int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix)):
       flops = forLoops(cpp, indexNames, ranges, body, pragmaSimd, prefix, indexNo-1)
-    if cpp._tokens != None:
-      cpp._tokens.append(("END_FOR_LOOPS_COMMON", []))
     flops = flops * rng.size()
   return flops
+
+def forLoopsAppendDescriptions(cpp, description_obj, indexNames, ranges, body, pragmaSimd=True, prefix='_', indexNo=None):
+  flops = 0
+  if indexNo == None:
+    indexNo = len(indexNames)-1
+  if indexNo < 0:
+    flops = body()
+  else:
+    index = indexNames[indexNo]
+    rng = ranges[index]
+    if pragmaSimd and indexNo == 0:
+      cpp('#pragma omp simd')
+    for_loop_descr = ("forLoopBegin", {})
+    for_loop_descr[1]["start"] = f"{rng.start}"
+    for_loop_descr[1]["stop"] = f"{rng.stop}"
+    for_loop_descr[1]["index"] = f"{prefix}{index}"
+    for_loop_descr[1]["iter"] = "++"
+    description_obj.append(for_loop_descr)
+    with cpp.For('int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix)):
+      flops = forLoopsAppendDescriptions(cpp, description_obj, indexNames, ranges, body, pragmaSimd, prefix, indexNo-1)
+    flops = flops * rng.size()
+    for_loop_descr = ("forLoopEnd", {})
+    description_obj.append(for_loop_descr)
+  return flops
+
   
 def loopRanges(term: IndexedTensorDescription, loopIndices):
   overlap = set(loopIndices) & set(term.indices)

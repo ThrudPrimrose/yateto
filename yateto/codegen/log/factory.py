@@ -53,10 +53,30 @@ class Description(object):
       self.addLoopRanges[peelOffIndex].start   = self.loopRanges[peelOffIndex].start+1
     else:
       self.assignLoopRanges = None
-      
+
+    def __str__(self):
+        return f"Description: " + \
+               f"alpha: {self.alpha}, " + \
+               f"add: {self.add}, " + \
+               f"result: {self.result}, " + \
+               f"leftTerm: {self.leftTerm}, " + \
+               f"rightTerm: {self.rightTerm}, " + \
+               f"loopIndices: {self.loopIndices}, " + \
+               f"transA: {self.transA}, " + \
+               f"transB: {self.transB}, " + \
+               f"prefetchName: {self.prefetchName}, " + \
+               f"loopRanges: {self.loopRanges}, " + \
+               f"innerLoopIndices: {self.innerLoopIndices}, " + \
+               f"outerLoopIndices: {self.outerLoopIndices}, " + \
+               f"assignLoopRanges: {self.assignLoopRanges}, " + \
+               f"addLoopRanges: {self.addLoopRanges}"
+
+    def __repr__(self):
+      return self.__str__()
 
 def generator(arch, descr, target):
   if target == "gpu":
-      return GemmforgeLOG(arch, descr)
-  return Generic(arch, descr, target)
+    return GemmforgeLOG(arch, descr)
+  else:
+    return Generic(arch, descr, target)
 

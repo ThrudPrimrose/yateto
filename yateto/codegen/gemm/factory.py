@@ -68,21 +68,24 @@ class Description(object):
     self.beta = beta
 
   def __str__(self):
-      return ("Description(\n"
-              f"  result={self.result},\n"
-              f"  leftTerm={self.leftTerm},\n"
-              f"  rightTerm={self.rightTerm},\n"
-              f"  transA={self.transA},\n"
-              f"  transB={self.transB},\n"
-              f"  alpha={self.alpha},\n"
-              f"  beta={self.beta},\n"
-              f"  prefetchName={self.prefetchName},\n"
-              f"  isACsc={self.isACsc},\n"
-              f"  isBCsc={self.isBCsc},\n"
-              f"  alignedA={self.alignedA},\n"
-              f"  alignedC={self.alignedC},\n"
-              f"  mnk={self._mnk}\n"
+      return ("Description("
+              f"  result={self.result},\t"
+              f"  leftTerm={self.leftTerm},\t"
+              f"  rightTerm={self.rightTerm},\t"
+              f"  transA={self.transA},\t"
+              f"  transB={self.transB},\t"
+              f"  alpha={self.alpha},\t"
+              f"  beta={self.beta},\t"
+              f"  prefetchName={self.prefetchName},\t"
+              f"  isACsc={self.isACsc},\t"
+              f"  isBCsc={self.isBCsc},\t"
+              f"  alignedA={self.alignedA},\t"
+              f"  alignedC={self.alignedC},\t"
+              f"  mnk={self._mnk}"
               ")")
+
+  def __repr__(self):
+    return self.__str__()
 
 def generator(arch, descr, gemm_cfg, target):
   AOk = descr.isACsc or descr.leftTerm.memoryLayout.stridei(0) == 1
@@ -105,6 +108,7 @@ def generator(arch, descr, gemm_cfg, target):
                                     target)
 
     if isinstance(gemmTool, GemmForge):
+      assert(target=="gpu")
       return GemmforgeGemmGen(arch, descr, gemmTool)
     elif gemmTool:
       return GemmGen(arch, descr, gemmTool)
