@@ -53,7 +53,7 @@ class GemmforgeGemmGen(object):
   
   def get_last_description(self):
     assert(len(GemmforgeGemmGen.gemmforge_descriptions) > 0)
-    return GemmforgeGemmGen.gemmforge_descriptions[:-1]
+    return GemmforgeGemmGen.gemmforge_descriptions[-1]
 
   def generateRoutineName(self, gemm, spp):
     name = self._gemm_cfg.operation_name
@@ -140,13 +140,15 @@ class GemmforgeGemmGen(object):
           try:
             for complete_descr in GemmforgeGemmGen.gemmforge_descriptions:
               args = complete_descr[-1]
-              d = args["descr"]
+              d = complete_descr["descr"]
               args_str = ', '.join(args)
 
               vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
               forge_generator = gf.GemmGenerator(vm)
 
-              forge_generator.set(d.transA, d.transB, matrix_a, matrix_b, matrix_c, d.alpha, d.beta)
+              forge_generator.set(d.transA, d.transB, complete_descr["matrix_a"], 
+                                  complete_descr["matrix_b"], complete_descr["matrix_c"], 
+                                  d.alpha, d.beta)
               routine_name = forge_generator.get_base_name()
 
               if not isinstance(d.alpha, float):
@@ -162,6 +164,32 @@ class GemmforgeGemmGen(object):
         raise RuntimeError('gemmforge module is not found. You can install it with pip3. '
                            'e.g., pip3 install gemmforge')
     return flops
+
+  def generate_buffered_descriptions(self, cpp, routineCache):
+    assert(self._generate_code)
+    try:
+      for complete_descr in GemmforgeGemmGen.gemmforge_descriptions:
+        args = complete_descr["args"]
+        d = complete_descr["descr"]
+        args_str = ', '.join(args)
+
+        vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
+        forge_generator = gf.GemmGenerator(vm)
+
+        forge_generator.set(d.transA, d.transB, complete_descr["matrix_a"], 
+                            complete_descr["matrix_b"], complete_descr["matrix_c"], 
+                            d.alpha, d.beta)
+        routine_name = forge_generator.get_base_name()
+
+        if not isinstance(d.alpha, float):
+          args_str = f'{d.alpha}, {args_str}'
+
+        cpp("{}({});".format(routine_name, ', '.join(args)))
+        routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
+      GemmforgeGemmGen.gemmforge_descriptions.clear()
+    except gf.GenerationError as err:
+      print(f'ERROR from GemmForge: {err}')
+      raise err
 
 class GemmForgeWriter(GpuRoutineGenerator):
   def __init__(self, forge_generator, headers):

@@ -1,15 +1,16 @@
+from yateto.codegen.gemm import GemmforgeGemmGen
 from ...ast.indices import Indices
 from ..common import *
 from .. import gemm
 from ...memory import DenseMemoryLayout
 
 class GemmforgeLOG(object):
+  gemmforge_log_descriptions = list()
   def __init__(self, arch, descr):
     self._arch = arch
     self._descr = descr
     self._target = "gpu"
-  
-    self._gemmforge_descriptions = list()
+
     self._generate_code = False
 
     # For GPUs we may only generate one function for the whole kernel, for CPU
@@ -134,21 +135,21 @@ class GemmforgeLOG(object):
       def __call__(s):
         if hasInnerLoops:
           print("LOGBODY")
+          for_loop_descr = ("LoGBody for", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerCname, outerCname, d.result, d.innerLoopIndices, const=False)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          GemmforgeLOG.gemmforge_log_descriptions.append(for_loop_descr)
+
           if outerPrefetchName is not None:
             self._pointer(cpp, innerPrefetchName, outerPrefetchName, d.result, d.innerLoopIndices)
         generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
         generator.set_code_generation_off()
         flops = generator.generate(cpp, routineCache)
-        cpp._tokens.append(generator.get_last_description())
+        GemmforgeLOG.gemmforge_log_descriptions.append(generator.get_last_description())
         generator.set_code_generation_on()
         return flops
 
@@ -159,15 +160,15 @@ class GemmforgeLOG(object):
         if hasOuterLoops:
           print("INNTERLOOPBODY HASOUTERLOOPS")
           print(d.outerLoopIndices)
+          for_loop_descr = ("InnerLoopBoy for", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerBname, d.rightTerm.name, d.rightTerm, d.outerLoopIndices)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerCname, d.result.name, d.result, d.outerLoopIndices, const=False)
-          cpp._tokens.append(("_POINTER", [("float type", float_type), ("const_identifier" ,const_identifier), 
-                            ("lhs", lhs), ("rhs", baseName), ("offset", addressStr)]))
+          for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          GemmforgeLOG.gemmforge_log_descriptions.append(for_loop_descr)
+
           if d.prefetchName is not None:
             self._pointer(cpp, outerPrefetchName, d.prefetchName, d.result, d.outerLoopIndices)
         if d.assignLoopRanges is not None:
@@ -183,8 +184,10 @@ class GemmforgeLOG(object):
       generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
       generator.set_code_generation_off()
       generator.generate(cpp, routineCache)
-      cpp._tokens.append(generator.get_last_description())
-      generator.set_code_generation_on()
+      GemmforgeLOG.gemmforge_log_descriptions.append(generator.get_last_description())
 
-    raise Exception(cpp._tokens)
+    # TODO Always call LOG generator of gemmforge now on
+    generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
+    generator.set_code_generation_on()
+    generator.generate_buffered_descriptions(cpp, routineCache)
     return flops
