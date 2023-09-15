@@ -1,3 +1,4 @@
+from copy import deepcopy
 import importlib
 from yateto.codegen.gemm import GemmforgeGemmGen
 from ...ast.indices import Indices
@@ -193,30 +194,36 @@ class GemmforgeLOG(object):
     #generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
     #generator.set_code_generation_on()
     #generator.generate_buffered_descriptions(cpp, routineCache)
-    vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
-    forge_generator = gf.LoopOverGemmGenerator(vm)
-    forge_generator.set(GemmforgeLOG.gemmforge_log_descriptions)
-    routine_name = forge_generator.get_base_name()
+    if self._generate_code:
+      try:
+        vm = gf.vm_factory(self._arch.name, self._arch.backend, fp_type=self._arch.typename)
+        forge_generator = gf.LoopOverGemmGenerator(vm)
+        forge_generator.set(deepcopy(GemmforgeLOG.gemmforge_log_descriptions))
+        routine_name = forge_generator.get_base_name()
 
-    aux = BatchedOperationsAux(self._arch.typename)
-    args = list()
-    print(GemmforgeLOG.gemmforge_log_descriptions)
-    for gemmforge_descr in GemmforgeLOG.gemmforge_log_descriptions:
-      print(gemmforge_descr)
-      if gemmforge_descr[0] == "gemm":
-        gemm_args = gemmforge_descr[1]["args"]
-        #descr = gemmforge_descr[1]["descr"]
-        args += gemm_args
-    args.append(BatchedOperationsAux.NUM_ELEMENTS_NAME)
-    args.append(BatchedOperationsAux.FLAGS_NAME)
-    args.append(BatchedOperationsAux.STREAM_PTR_NAME)
+        aux = BatchedOperationsAux(self._arch.typename)
+        args = list()
+        print(GemmforgeLOG.gemmforge_log_descriptions)
+        for gemmforge_descr in GemmforgeLOG.gemmforge_log_descriptions:
+          print(gemmforge_descr)
+          if gemmforge_descr[0] == "gemm":
+            gemm_args = gemmforge_descr[1]["args"]
+            args += gemm_args
+        args.append(BatchedOperationsAux.NUM_ELEMENTS_NAME)
+        args.append(BatchedOperationsAux.FLAGS_NAME)
+        args.append(BatchedOperationsAux.STREAM_PTR_NAME)
 
-    if not isinstance(d.alpha, float):
-      args_str = f'{d.alpha}, {args_str}'
+        if not isinstance(d.alpha, float):
+          args_str = f'{d.alpha}, {args_str}'
 
-    cpp("{}({});".format(routine_name, ', '.join(args)))
-    routineCache.addRoutine(routine_name, GemmforgeGemmGen.GemmForgeWriter(forge_generator, vm.get_headers()))
-    # Do not clear the LOG Tokens like Gemm Tokens
-    #GemmforgeLOG.gemmforge_log_descriptions.clear()
+        #raise Exception('\n'.join(map(str,GemmforgeLOG.gemmforge_log_descriptions)))
+
+        cpp("{}({});".format(routine_name, ', '.join(args)))
+        routineCache.addRoutine(routine_name, GemmforgeGemmGen.GemmForgeWriter(forge_generator, vm.get_headers()))
+        # May be cleared because the list was deepcopied
+        GemmforgeLOG.gemmforge_log_descriptions.clear()
+      except gf.GenerationError as err:
+        print("ERROR: {}".format(err))
+        raise err
 
     return flops
