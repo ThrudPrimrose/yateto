@@ -179,6 +179,9 @@ class Tensor(IdentifiedType):
   def __str__(self):
     return '{}: {}'.format(self._name, self._shape)
 
+  def __repr__(self):
+    return self.__str__()
+
 class Collection(object):
   def update(self, collection):
     self.__dict__.update(collection.__dict__)

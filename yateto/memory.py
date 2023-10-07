@@ -51,6 +51,8 @@ class MemoryLayout(ABC):
   def __str__(self):
     return f"MemoryLayout(shape={self._shape})"
 
+  def __repr__(self):
+    return self.__str__()
 
 class DenseMemoryLayout(MemoryLayout):
   ALIGNMENT_ARCH = None
@@ -257,6 +259,9 @@ class DenseMemoryLayout(MemoryLayout):
             f"stride={self._stride}, "
             f"align={self.ALIGNMENT_ARCH})"
           )
+
+  def __repr__(self):
+    return self.__str__()
 
 class CSCMemoryLayout(MemoryLayout):
   def __init__(self, spp):

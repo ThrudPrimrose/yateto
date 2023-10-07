@@ -106,6 +106,12 @@ class Kernel(object):
       self.cfg = FindFusedGemms().visit(self.cfg)
       self.cfg = LivenessAnalysis().visit(self.cfg)
 
+  def __str__(self):
+    return f"Kernel(name='{self.name}', ast={self.ast}, prefetch={self._prefetch}, namespace='{self.namespace}', target='{self.target}', cfg={self.cfg}, nonZeroFlops={self.nonZeroFlops})"
+
+  def __repr__(self):
+    return self.__str__()
+
 class KernelFamily(object):
   GROUP_INDEX = r'\((0|[1-9]\d*)\)'
   VALID_NAME = r'^{}({})$'.format(Kernel.BASE_NAME, GROUP_INDEX)
@@ -179,6 +185,7 @@ class KernelFamily(object):
   def prepareUntilCodeGen(self, costEstimator):
     for kernel in self._kernels.values():
       kernel.prepareUntilCodeGen(costEstimator)
+
 
 def simpleParameterSpace(*args):
   return list(itertools.product(*[list(range(i)) for i in args]))
