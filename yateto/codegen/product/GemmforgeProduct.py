@@ -120,10 +120,9 @@ class GemmforgeProduct(object):
           forge_generator.set(GemmforgeProduct.gemmforge_descriptions)
           routine_name = forge_generator.get_base_name()
 
-          print(self._gemmforge_descriptions)
           #We need to collect every input argument
           args = list()
-          for gemmforge_descr in self._gemmforge_descriptions:
+          for gemmforge_descr in GemmforgeProduct.gemmforge_descriptions:
             descr = gemmforge_descr[0]
             if not descr.leftTerm.is_temporary:
               args.append(aux.deduce_arg(descr.leftTerm))
@@ -138,7 +137,7 @@ class GemmforgeProduct(object):
           cpp("{}({});".format(routine_name, ', '.join(args)))
 
           routineCache.addRoutine(routine_name, GemmForgeWriter(forge_generator, vm.get_headers()))
-
+          GemmforgeProduct.gemmforge_descriptions.clear()
         except gf.GenerationError as err:
           print("ERROR: {}".format(err))
           raise err
