@@ -216,8 +216,6 @@ class GemmforgeLOG(object):
         if not isinstance(d.alpha, float):
           args_str = f'{d.alpha}, {args_str}'
 
-        #raise Exception('\n'.join(map(str,GemmforgeLOG.gemmforge_log_descriptions)))
-
         cpp("{}({});".format(routine_name, ', '.join(args)))
         routineCache.addRoutine(routine_name, GemmforgeGemmGen.GemmForgeWriter(forge_generator, vm.get_headers()))
         # May be cleared because the list was deepcopied

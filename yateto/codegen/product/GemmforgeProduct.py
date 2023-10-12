@@ -77,27 +77,29 @@ class GemmforgeProduct(object):
     if (gf_spec):
       d = self._descr
       print(d)
-      loopRanges = list()
-      for i in range(len(d.result.indices)):
-          m = d.loopRanges[d.result.indices[i]]
-          loopRanges.append(m)
-          print("X", m, "Y", str(m), "Z", m.__repr__())
       alpha = d.alpha
-      print(d.leftTerm.memoryLayout.bbox())
+      loopRanges = d.loopRanges
+
+      a_ranges = list()
+      b_ranges = list()
+      c_ranges = list()
+      for ranges, tensor_descr in [(a_ranges, d.leftTerm), (b_ranges, d.rightTerm), (c_ranges, d.result)]:
+        for index in tensor_descr.indices:
+          ranges.append(loopRanges[index])
 
       aux = BatchedOperationsAux(self._arch.typename)
-      tensor_a = gf.YatetoInterface.produce_dense_tensor(loopRanges,
-                                                         d.leftTerm.memoryLayout.bbox(),
+      tensor_a = gf.YatetoInterface.produce_dense_tensor(yateto_ranges=a_ranges,
+                                                         yateto_memory_layout_bbox=d.leftTerm.memoryLayout.bbox(),
                                                          addressing=aux.deduce_addresing(d.leftTerm),
                                                          transpose=False)
 
-      tensor_b = gf.YatetoInterface.produce_dense_tensor(loopRanges,
-                                                         d.rightTerm.memoryLayout.bbox(),
+      tensor_b = gf.YatetoInterface.produce_dense_tensor(yateto_ranges=b_ranges,
+                                                         yateto_memory_layout_bbox=d.rightTerm.memoryLayout.bbox(),
                                                          addressing=aux.deduce_addresing(d.rightTerm),
                                                          transpose=False)
 
-      tensor_c = gf.YatetoInterface.produce_dense_tensor(loopRanges,
-                                                         d.result.memoryLayout.bbox(),
+      tensor_c = gf.YatetoInterface.produce_dense_tensor(yateto_ranges=c_ranges,
+                                                         yateto_memory_layout_bbox=d.result.memoryLayout.bbox(),
                                                          addressing=aux.deduce_addresing(d.result),
                                                          transpose=False)
 
@@ -110,7 +112,15 @@ class GemmforgeProduct(object):
               BatchedOperationsAux.FLAGS_NAME,
               BatchedOperationsAux.STREAM_PTR_NAME
               ]
-      complete_operation_description = (self._descr, tensor_a, tensor_b, tensor_c, alpha, args)
+      complete_operation_description = ("product", 
+      {
+        "descr": self._descr,
+        "tensor_a": tensor_a,
+        "tensor_b": tensor_b,
+        "tensor_c": tensor_c,
+        "alpha": alpha, 
+        "args": args
+      })
       GemmforgeProduct.gemmforge_descriptions.append(complete_operation_description)
 
       if self._generate_code:
@@ -123,7 +133,7 @@ class GemmforgeProduct(object):
           #We need to collect every input argument
           args = list()
           for gemmforge_descr in GemmforgeProduct.gemmforge_descriptions:
-            descr = gemmforge_descr[0]
+            descr = gemmforge_descr[1]["descr"]
             if not descr.leftTerm.is_temporary:
               args.append(aux.deduce_arg(descr.leftTerm))
             if not descr.rightTerm.is_temporary:
