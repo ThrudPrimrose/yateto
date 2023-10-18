@@ -144,7 +144,7 @@ class GemmforgeLOG(object):
       def __call__(s):
         if hasInnerLoops:
           print("LOGBODY")
-          for_loop_descr = ("LoGBody", dict())
+          for_loop_descr = ("OuterLoopBody", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
           for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
