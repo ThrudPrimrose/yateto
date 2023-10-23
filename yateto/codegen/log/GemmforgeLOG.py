@@ -1,10 +1,15 @@
 from copy import deepcopy
 import importlib
-from yateto.codegen.gemm import GemmforgeGemmGen
+import sys
 from ...ast.indices import Indices
 from ..common import *
 from .. import gemm
 from ...memory import DenseMemoryLayout
+from ...gemm_configuration import GemmForge
+
+from yateto.codegen.gemm import GemmforgeGemmGen
+
+from yateto import codegen
 
 gf_spec = importlib.util.find_spec('gemmforge')
 try:
@@ -15,6 +20,7 @@ except:
 
 class GemmforgeLOG(object):
   gemmforge_log_descriptions = list()
+
   def __init__(self, arch, descr):
     self._arch = arch
     self._descr = descr
@@ -144,21 +150,30 @@ class GemmforgeLOG(object):
       def __call__(s):
         if hasInnerLoops:
           print("LOGBODY")
-          for_loop_descr = ("OuterLoopBody", dict())
+          lg_for_loop_descr = ("OuterLoopBody", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerAname, outerAname, d.leftTerm, d.innerLoopIndices)
-          for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          lg_for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerBname, outerBname, d.rightTerm, d.innerLoopIndices)
-          for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          lg_for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, innerCname, outerCname, d.result, d.innerLoopIndices, const=False)
-          for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
-          GemmforgeLOG.gemmforge_log_descriptions.append(for_loop_descr)
+          lg_for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          GemmforgeLOG.gemmforge_log_descriptions.append(lg_for_loop_descr)
+          print("APPEND: ", lg_for_loop_descr)
 
           if outerPrefetchName is not None:
             self._pointer(cpp, innerPrefetchName, outerPrefetchName, d.result, d.innerLoopIndices)
         generator = gemm.generator(self._arch, gemmDescr, gemm_cfg, self._target)
+        #compare_generator = GemmforgeGemmGen(self._arch, gemmDescr, GemmForge)
+        #if compared against "GemmforgeGemmGen" the type is taken as a module and does not work
+        if not isinstance(generator, codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen):
+          #sys.stderr.write(str(type(generator))+ ", " + str(codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen) + ", " + str(isinstance(generator, codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen)) + "\n")
+          GemmforgeLOG.gemmforge_log_descriptions.clear()
+          raise Exception("Non-unit stride GEMM required in both dimensions, it is not supported by Gemmforge yet")
+
         generator.set_code_generation_off()
         flops = generator.generate(cpp, routineCache)
         GemmforgeLOG.gemmforge_log_descriptions.append(generator.get_last_description())
+        print("APPEND: ", generator.get_last_description())
         generator.set_code_generation_on()
         return flops
 
@@ -169,14 +184,15 @@ class GemmforgeLOG(object):
         if hasOuterLoops:
           print("INNTERLOOPBODY HASOUTERLOOPS")
           print(d.outerLoopIndices)
-          for_loop_descr = ("InnerLoopBody", dict())
+          ilg_for_loop_descr = ("InnerLoopBody", dict())
           (float_type, const_identifier, lhs, baseName, addressStr) = self._pointer(cpp, outerAname, d.leftTerm.name, d.leftTerm, d.outerLoopIndices)
-          for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          ilg_for_loop_descr[1]["lhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerBname, d.rightTerm.name, d.rightTerm, d.outerLoopIndices)
-          for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          ilg_for_loop_descr[1]["rhs"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
           (float_type, const_identifier, lhs, baseName, addressStr) =  self._pointer(cpp, outerCname, d.result.name, d.result, d.outerLoopIndices, const=False)
-          for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
-          GemmforgeLOG.gemmforge_log_descriptions.append(for_loop_descr)
+          ilg_for_loop_descr[1]["result"] = {"float_type": float_type, "const_identifier": const_identifier, "lhs": lhs, "rhs": baseName, "offset": addressStr}
+          GemmforgeLOG.gemmforge_log_descriptions.append(ilg_for_loop_descr)
+          print("APPEND: ", ilg_for_loop_descr)
 
           if d.prefetchName is not None:
             self._pointer(cpp, outerPrefetchName, d.prefetchName, d.result, d.outerLoopIndices)
@@ -220,8 +236,11 @@ class GemmforgeLOG(object):
         routineCache.addRoutine(routine_name, GemmforgeGemmGen.GemmForgeWriter(forge_generator, vm.get_headers()))
         # May be cleared because the list was deepcopied
         GemmforgeLOG.gemmforge_log_descriptions.clear()
+        #GemmforgeGemmGen.gemmforge_descriptions.clear()
       except gf.GenerationError as err:
         print("ERROR: {}".format(err))
+        GemmforgeLOG.gemmforge_log_descriptions.clear()
+        #GemmforgeGemmGen.gemmforge_descriptions.clear()
         raise err
 
     return flops

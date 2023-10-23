@@ -161,6 +161,7 @@ class GemmforgeGemmGen(object):
             GemmforgeGemmGen.gemmforge_descriptions.clear()
           except gf.GenerationError as err:
             print(f'ERROR from GemmForge: {err}')
+            GemmforgeGemmGen.gemmforge_descriptions.clear()
             raise err
     else:
         raise RuntimeError('gemmforge module is not found. You can install it with pip3. '
@@ -191,6 +192,7 @@ class GemmforgeGemmGen(object):
       #GemmforgeGemmGen.gemmforge_descriptions.clear()
     except gf.GenerationError as err:
       print(f'ERROR from GemmForge: {err}')
+      GemmforgeGemmGen.gemmforge_descriptions.clear()
       raise err
 
 class GemmForgeWriter(GpuRoutineGenerator):

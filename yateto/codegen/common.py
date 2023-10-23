@@ -88,17 +88,19 @@ def forLoopsAppendDescriptions(cpp, description_obj, indexNames, ranges, body, p
     rng = ranges[index]
     if pragmaSimd and indexNo == 0:
       cpp('#pragma omp simd')
-    for_loop_descr = ("forLoopBegin", {})
-    for_loop_descr[1]["start"] = f"{rng.start}"
-    for_loop_descr[1]["stop"] = f"{rng.stop}"
-    for_loop_descr[1]["index"] = f"{prefix}{index}"
-    for_loop_descr[1]["iter"] = "++"
-    description_obj.append(for_loop_descr)
+    flad_for_loop_descr = ("forLoopBegin", {})
+    flad_for_loop_descr[1]["start"] = f"{rng.start}"
+    flad_for_loop_descr[1]["stop"] = f"{rng.stop}"
+    flad_for_loop_descr[1]["index"] = f"{prefix}{index}"
+    flad_for_loop_descr[1]["iter"] = "++"
+    description_obj.append(flad_for_loop_descr)
+    print("APPEND: ", flad_for_loop_descr)
     with cpp.For('int {3}{0} = {1}; {3}{0} < {2}; ++{3}{0}'.format(index, rng.start, rng.stop, prefix)):
       flops = forLoopsAppendDescriptions(cpp, description_obj, indexNames, ranges, body, pragmaSimd, prefix, indexNo-1)
     flops = flops * rng.size()
-    for_loop_descr = ("forLoopEnd", {})
-    description_obj.append(for_loop_descr)
+    flad_for_loop_descr_end = ("forLoopEnd", {})
+    description_obj.append(flad_for_loop_descr_end)
+    print("APPEND: ", flad_for_loop_descr_end)
   return flops
 
   

@@ -150,6 +150,7 @@ class GemmforgeProduct(object):
           GemmforgeProduct.gemmforge_descriptions.clear()
         except gf.GenerationError as err:
           print("ERROR: {}".format(err))
+          GemmforgeProduct.gemmforge_descriptions.clear()
           raise err
 
       print("WARNING: TODO: Update FLOPs")
