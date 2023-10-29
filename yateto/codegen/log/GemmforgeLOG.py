@@ -168,6 +168,7 @@ class GemmforgeLOG(object):
         if not isinstance(generator, codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen):
           #sys.stderr.write(str(type(generator))+ ", " + str(codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen) + ", " + str(isinstance(generator, codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen)) + "\n")
           GemmforgeLOG.gemmforge_log_descriptions.clear()
+          codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen.gemmforge_descriptions.clear()
           raise Exception("Non-unit stride GEMM required in both dimensions, it is not supported by Gemmforge yet")
 
         generator.set_code_generation_off()
@@ -240,6 +241,7 @@ class GemmforgeLOG(object):
       except gf.GenerationError as err:
         print("ERROR: {}".format(err))
         GemmforgeLOG.gemmforge_log_descriptions.clear()
+        codegen.gemm.GemmforgeGemmGen.GemmforgeGemmGen.gemmforge_descriptions.clear()
         #GemmforgeGemmGen.gemmforge_descriptions.clear()
         raise err
 

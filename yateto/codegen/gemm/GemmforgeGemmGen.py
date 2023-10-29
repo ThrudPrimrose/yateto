@@ -2,6 +2,8 @@ import hashlib
 import subprocess
 import tempfile
 
+from yateto import codegen
+
 from ..cache import RoutineGenerator, GpuRoutineGenerator
 from ...gemm_configuration import GemmForge
 from ..common import BatchedOperationsAux
@@ -162,6 +164,7 @@ class GemmforgeGemmGen(object):
           except gf.GenerationError as err:
             print(f'ERROR from GemmForge: {err}')
             GemmforgeGemmGen.gemmforge_descriptions.clear()
+            codegen.log.GemmforgeLog.gemmforge_descriptions.clear()
             raise err
     else:
         raise RuntimeError('gemmforge module is not found. You can install it with pip3. '
@@ -193,6 +196,7 @@ class GemmforgeGemmGen(object):
     except gf.GenerationError as err:
       print(f'ERROR from GemmForge: {err}')
       GemmforgeGemmGen.gemmforge_descriptions.clear()
+      codegen.log.GemmforgeLog.gemmforge_descriptions.clear()
       raise err
 
 class GemmForgeWriter(GpuRoutineGenerator):
